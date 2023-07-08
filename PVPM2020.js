@@ -1,5 +1,4 @@
-// State scale analysis of RICE vpm model
-// Loading the data
+// State scale analysis of RICE pvpm model
 // MOD9A1 data has been loaded before as modTerra
 // Images for the study site arkansasRice2020
 
@@ -29,10 +28,10 @@ var maskMOD09A1Clouds = function (image) {
     .and(aerosolQuantity.lte(1)); // No aerosol quantity
   var maskedImage = image.updateMask(mask);
   return maskedImage; 
-}
+};
 
 // filter and cloud-mask image collection 
-var maskmod = MOD09A1Collection.map(maskMOD09A1Clouds)
+var maskmod = MOD09A1Collection.map(maskMOD09A1Clouds);
 
 // scaling converting the modis band by the required scaling
 var addscaleb1 = function(image) {
@@ -57,6 +56,8 @@ var addscaleb3 = function(image) {
 };
 var modisb3 = modisb2.map(addscaleb3);
 
+
+var modisb3 = modisb3.select(['sur_refl_b01','sur_refl_b02','sur_refl_b03','scaleb1','scaleb2','scaleb3','sur_refl_b06'], ['sur_refl_b01','sur_refl_b02','sur_refl_b03','scaleb1','scaleb2','scaleb3','sur_refl_b06'])
     
 // NDVI Formula 
 var addNDVI = function(image) {
@@ -160,8 +161,8 @@ var withFAPAR = final_col.map(addFAPAR);
 // ////////////////////////////////////
 // GAFILLING EVI
 var fapar1 = ee.Image(withFAPAR.first())
-Map.addLayer(fapar1, {bands: ['FAPAR'],
-    }, "fapar1")
+// Map.addLayer(fapar1, {bands: ['FAPAR'],
+    // }, "fapar1")
 
 var mod_evi = withFAPAR.select(['EVI'])
 // print(mod_evi)
@@ -169,7 +170,7 @@ var mod_evi = withFAPAR.select(['EVI'])
 
 //fill the gaps in the original MODIS NDVI time series by linear interpolation
 var interl_m = require('users/Yang_Chen/GF-SG:Interpolation_v1');
-var frame  = 8*4; 
+var frame  = 8*7; 
 var nodata = -9999; 
 var mod_ndvi_interp = interl_m.linearInterp(mod_evi, frame, nodata);
 // print("mod_ndvi_interp", mod_ndvi_interp)
@@ -344,7 +345,7 @@ var finalCol_withWs_WS = finalCol_withWs.select(['LSWI_SG', 'LSWImax', 'Ws'])
 
 
 // map add layer
-// Map.addLayer(arkansasRice2020) 
+Map.addLayer(arkansasRice2020) 
 var palettes = require('users/gena/packages:palettes');
 
 // Mosaic the visualization layers and display (or export).
@@ -361,7 +362,7 @@ var mosaic = ee.ImageCollection([imageRGB]).mosaic();
 // Map.addLayer(mosaic.clip(arkansasRice2020));
 
 var addLUE = function(image) {
-  var LUE = (ee.Image.constant(0.42)).rename('LUE')
+  var LUE = (ee.Image.constant(0.6)).rename('LUE')
   return image.addBands(LUE);
 };
 
@@ -506,7 +507,7 @@ var withcel = withcel.map(tmean);
 var withcel_temp = withcel.select(['tmaxcel', 'tempcel', 'tmean'])
 //Map.addLayer(withcel_temp, {bands: ['tmaxcel', 'tempcel', 'tmean']}, "withcel_temp")
 
-
+// get the topt as a function of cum gdd
 // Ts calculation
 
 var Ts = function(image) {
@@ -662,8 +663,9 @@ var min_after = ee.ImageCollection(
 //Map.addLayer(min_after, {min: 1, max: 365}, 'min_after')
 
 
-
-Map.addLayer(arkansasRice2020)
+// add the layer of the shapefile and rasterfile
+// Map.addLayer(arkansasRice2020)
+// 
 
 
 var bandSubsetonlyEVI = bandSubset.select(['EVI_SG'], ['EVI_SG'])
@@ -769,10 +771,10 @@ var eviwithdop = eviwithdop.map(calculateg2);
 //Map.addLayer(eviwithdop, null, "eviwithdop")
 
 
-// Calculate the DOP
+// Calculate the DOP with all the data not only by training set
 var calculateDOP = function(image) {
   var DOP= image.expression(
-    '-95+ (EVI_SG_min_after  *139.33)+ (76.2488 * g1) + (0.7153 * doy_max)', {
+    '-60.84750+ (EVI_SG_min_after  *121.67564)+ (61.21313  * g1) + (0.60133  * doy_max)', {
       'EVI_SG_min_after': image.select("EVI_SG_min_after"),
       'g1': image.select("g1"),
       'doy_max': image.select("doy_max"),
@@ -782,10 +784,10 @@ var calculateDOP = function(image) {
 };
 var eviwithdop = eviwithdop.map(calculateDOP);
 
-// Calculate the DOH
+// Calculate the DOH all the data not only by training set
 var calculateDOH = function(image) {
   var DOH= image.expression(
-    '-17.6151 + (EVI_SG_min_after*110.4337) +(66.0053 *g1) + (1.0242 * doy_max)', {
+    '30.46275  + (EVI_SG_min_after* 139.24409) +( 73.85717 *g1) + (0.75480 * doy_max)', {
       'EVI_SG_min_after': image.select("EVI_SG_min_after"),
       'g1': image.select("g1"),
       'doy_max': image.select("doy_max"),
@@ -868,50 +870,251 @@ var addDAP3 = function(image) {
   return image.addBands(DAP3)  
  }
 
+
 var withDAPfromDOP = withDAPfromDOP.map(addDAP3)
+// print("withDAPfromDOP", withDAPfromDOP)
 //print(withDAPfromDOP, "withDAPfromDOP")
-//Map.addLayer( withDAPfromDOP)
+// Map.addLayer( withDAPfromDOP)
+
+
+// calculate the GDD
+// GDD
+var dataset = ee.ImageCollection('OREGONSTATE/PRISM/AN81d')
+                  .filter(ee.Filter.date('2020-01-01', '2020-12-31'));
+
+// Set Tmax greater than 30 as 30
+var temp30 = function(image) {
+
+  var tmax_30 = ee.Image().expression(
+    "((i.tmax) >= 30.0) ? 30.0"+
+    ":i.tmax", { i: image}
+  ).rename('tmax_30')
+  
+  return image.addBands(tmax_30)  
+ }
+
+
+var tmax_30_collection = dataset.map(temp30);
+// print(tmax_30_collection, "tmax_30_collection");
+// Map.addLayer( tmax_30_collection);
+
+// 
+// Calculate t
+var gddplustenfunc = function(image) {
+  var tmax = image.select("tmax_30")
+  var tmin = image.select("tmin")
+  var GDDplusten = ((tmax.add(tmin)).divide(2)).rename('GDDplusten')
+  return image.addBands(GDDplusten);
+};
+
+var gddplusten_collection = tmax_30_collection.map(gddplustenfunc);
+// print(gddplusten_collection);
+
+
+// subtract Dop from DOY
+var addgdd = function(image) {
+
+  var gdd = ee.Image().expression(
+    "((i.GDDplusten) < 10.0) ? 0.0"+
+    ":i.GDDplusten - 10", { i: image}
+  ).rename('gdd')
+  
+  return image.addBands(gdd)  
+ }
+
+var gdd_collection = gddplusten_collection.map(addgdd);
+
+
+// print(gdd_collection);
+
+
+
+// The gdd is calculated at one day. To calculate the Cumulative GDD this is the right
+//  time . because cumulative GDD needs to be calculated at one day interval 
+
+// add dop to the gdd collection
+var gdd_collection = gdd_collection.map(addDate)
+var gdd_collection = gdd_collection.map(floatcollection)
+var gdd_collection = gdd_collection.map(adddopdoh);
+var gdd_collection = gdd_collection.map(calculateDAP);
+var gdd_collection = gdd_collection.map(addDAP)
+var gdd_collection = gdd_collection.map(addDAP2)
+var gdd_collection = gdd_collection.map(addDAP3)
+
+
+// eliminate the non growing season gdd values
+// subtract Dop from DOY
+var nonzerogdd = function(image) {
+
+  var GDDnz = ee.Image().expression(
+    "((i.DAP_3) == 0.0) ? 0.0"+
+    ":i.gdd", { i: image}
+  ).rename('GDDnz')
+  
+  return image.addBands(GDDnz)  
+ }
+var gdd_collection = gdd_collection.map(nonzerogdd)
+// we have gdd 
+// we need cumulative gdd
+// calculate the sum of GGD values
+// var gdd_collection = gdd_collection.select('GDDnz').sum().rename('summedGDD');
+// print(gdd_collection, "gdd_collection")
+// Map.addLayer(gdd_collection, null, "gdd_collection")
+
+var time0 = gdd_collection.first().get('system:time_start');
+// print("time0", time0)
+// The first anomaly image in the list is just 0, with the time0 timestamp.
+var first = ee.List([
+  // Rename the first band 'EVI'.
+  ee.Image(0).set('system:time_start', time0).select([0], ['GDDnz'])
+]);
+
+// print("first", first)
+// Create an ImageCollection of cumulative anomaly images by iterating.
+// Since the return type of iterate is unknown, it needs to be cast to a List.
+// This is a function to pass to Iterate().
+// As anomaly images are computed, add them to the list.
+var accumulate = function(image, list) {
+  // Get the latest cumulative anomaly image from the end of the list with
+  // get(-1).  Since the type of the list argument to the function is unknown,
+  // it needs to be cast to a List.  Since the return type of get() is unknown,
+  // cast it to Image.
+  var previous = ee.Image(ee.List(list).get(-1));
+  // Add the current anomaly to make a new cumulative anomaly image.
+  var added = image.add(previous)
+    // Propagate metadata to the new image.
+    .set('system:time_start', image.get('system:time_start'));
+  // Return the list with the cumulative anomaly inserted.
+  return ee.List(list).add(added);
+};
+
+var cumulative = ee.ImageCollection(ee.List(gdd_collection.iterate(accumulate, first)));
+// print(cumulative, "cumulative")
+// Filter out the first image
+var filtered = cumulative.filter(ee.Filter.inList('system:index',['0']).not());
+var filtered_gdd= gdd_collection.select('GDDnz');
+// print(filtered);
+// Map.addLayer(filtered_gdd, null, "filtered_gdd");
+
+
+
+// Filter out the first image
+var filtered = cumulative.filter(ee.Filter.inList('system:index',['0']).not());
+var filtered_gdd= filtered.select('GDDnz');
+// print("filtered", filtered);
+// Map.addLayer(filtered_gdd, null, "filtered_gdd");
+// Map.addLayer(filtered_gdd, null, "filtered_gdd");
+//  The second filtered gdd has the cumulative GDD
+
+// daily gdd to 8 day gdd
+var eightday = filtered_gdd.filterDate('2020-01-01', "2020-12-31")
+// print("eightday", eightday)
+
+
+var startDate = ee.Date('2020-01-01')
+var endDate = ee.Date('2020-12-31')
+var dayOffsets = ee.List.sequence(
+  0, 
+  endDate.difference(startDate, 'days').subtract(1),
+  8 // Single day every week
+)
+
+var weeklyMeansgdd = ee.ImageCollection.fromImages(
+  dayOffsets.map(function(dayOffset) {
+    var start = startDate.advance(dayOffset, 'day')
+    var end = start.advance(8, 'day')
+    return eightday
+      .filterDate(start, end)
+      .mean()
+      .set('system:time_start', start.millis());
+  })  
+);
+
+// print('weeklyMeansgdd', weeklyMeansgdd)
+// Map.addLayer(weeklyMeansgdd, null, "weeklyMeansgdd")
+
+
+
+
+
+// Combine GDD and EVI
+var mod1 = withDAPfromDOP
+var mod2 = weeklyMeansgdd
+
+var filter = ee.Filter.equals({
+  leftField: 'system:time_start',
+  rightField: 'system:time_start'
+});
+
+// Create the join.
+var simpleJoin = ee.Join.inner();
+
+// Inner join
+var innerJoin = ee.ImageCollection(simpleJoin.apply(mod1, mod2, filter))
+
+var withDAPfromDOPwithGDD = innerJoin.map(function(feature) {
+  return ee.Image.cat(feature.get('primary'), feature.get('secondary'));
+})
+
+// print('withDAPfromDOPwithGDD', withDAPfromDOPwithGDD)
+// Map.addLayer(withDAPfromDOPwithGDD, null, "withDAPfromDOPwithGDD")
+
+// remove the post harvest gdd or convert them to 0
+var zeroharvestGDD = function(image) {
+
+  var GDDnzh = ee.Image().expression(
+    "((i.DAP_3) == 0.0) ? 0"+
+    ":i.GDDnz", { i: image}
+  ).rename('GDDnzh')
+  
+  return image.addBands(GDDnzh)  
+ }
+var withDAPfromDOPwithGDD = withDAPfromDOPwithGDD.map(zeroharvestGDD)
+// Map.addLayer(withDAPfromDOPwithGDD, null, "withDAPfromDOPwithGDD")
+
 
 // y_pred_modarrhenius<-(0.071*((-3537*exp((-1665*(x-69))/(x*8.14*69)))/(-3537-(-1665*(1-exp((-3537*(x-69))/(x*8.14*69)))))))
 
-
+// d = 69 = 0.0810912489157222
+// c = 0.071 = 746.492044000752
+// b = -3537 =3257.29822141873
+// a = -1665 = 1259.58724290141
 
 var pLUEmax = function(image) {
   var a = ee.Image().expression(
-    'i.DAP_3*8.14*69', {i: image}
+    'i.GDDnzh*746.492044000752', {i: image}
   )
   var b = ee.Image().expression(
-    '-1665*(i.DAP_3-69)', {i: image}
+    '1259.58724290141*(i.GDDnzh-746.492044000752)', {i: image}
   )
   var m = ee.Image().expression(
     '(b/a)', {i: image, a:a, b:b}
   )
   var c = ee.Image().expression(
-    '-3537*(exp(m))', {i: image, m:m}
+    '3257.29822141873*(exp(m))', {i: image, m:m}
   )
   var d = ee.Image().expression(
-    'i.DAP_3*8.14*69', {i: image}
+    'i.GDDnzh*746.492044000752', {i: image}
   )
   var e = ee.Image().expression(
-    '-3537*(i.DAP_3-69)', {i: image}
+    '3257.29822141873*(i.GDDnzh-746.492044000752)', {i: image}
   )
   var f = ee.Image().expression(
     '1-(exp(e/d))', {i: image, d:d, e:e}
   )
   var g = ee.Image().expression(
-    '-3537-(-1665*f)', {i: image, f:f}
+    '3257.29822141873-(1259.58724290141*f)', {i: image, f:f}
   )
   var pLUEmax = ee.Image().expression(
-    '0.071*(c/g)', {a: a, b: b, c: c, d:d, e:e, f:f, g:g, m:m}
+    '0.0810912489157222*(c/g)', {a: a, b: b, c: c, d:d, e:e, f:f, g:g, m:m}
   ).rename('pLUEmax')
   
   return image.addBands(pLUEmax)  
  }
 
-var withpLUEmaxmodarr = withDAPfromDOP.map(pLUEmax)
-//print(withpLUEmaxmodarr, 'withpLUEmaxmodarr')
-//Map.addLayer( withpLUEmaxmodarr)
-
+var withpLUEmaxmodarr = withDAPfromDOPwithGDD.map(pLUEmax)
+// print(withpLUEmaxmodarr, 'withpLUEmaxmodarr')
+// Map.addLayer( withpLUEmaxmodarr, null, "withpLUEmaxmodarr")
 
 
 // LUEmax
@@ -926,16 +1129,41 @@ var pLUEmax2 = function(image) {
  }
 
 var withDAPfromDOP = withpLUEmaxmodarr.map(pLUEmax2)
+
 //print(withDAPfromDOP, "withDAPfromDOP")
-//Map.addLayer( withDAPfromDOP)
+// Map.addLayer( withDAPfromDOP)
+
+// get the topt as a function of cum gdd
+// Ts calculation
 
 
+var Topt = function(image) {
+  var Toptpvpm = ee.Image().expression(
+    '19.2264643293831+  (i.GDDnzh*0.0201056215099306) + ((i.GDDnzh**2)* (-0.0000096932128757459)) + ((i.GDDnzh**3)*(0.0000000010315977301646))', {i: image}
+    ).rename('Toptpvpm')
+  return image.addBands(Toptpvpm)  
+ }
+var withDAPfromDOP = withDAPfromDOP.map(Topt);
+
+
+var Tspvpm = function(image) {
+  var tmean = image.select("tmean")
+  var topt = image.select("Toptpvpm")
+  var Tspvpm = (tmean.add(1).multiply(tmean.subtract(48))).divide((tmean.add(1).multiply(tmean.subtract(48))).subtract((tmean.subtract(topt)).pow(2))).rename("Tspvpm")
+  return image.addBands(Tspvpm);
+};
+
+var withDAPfromDOP = withDAPfromDOP.map(Tspvpm);
+
+Map.addLayer(withDAPfromDOP, null, "Topt")
 
 // GPPVPM calculation
 
+
+
 var PVPMfunction = function(image) {
   var par = image.select("par")
-  var ts = image.select("ts")
+  var ts = image.select("Tspvpm")
   var Ws = image.select("Ws")
   var FAPAR_sg = image.select("FAPAR_sg")
   var LUE = image.select("pLUEmax2")
@@ -944,54 +1172,117 @@ var PVPMfunction = function(image) {
 };
 
 var withcel = withDAPfromDOP.map(PVPMfunction);
-//print(withcel)
+print(withcel)
+Map.addLayer(withcel, null, "withcelGPPPVPM")
 
-
+// PVPM
 var withcel_gpp = withcel.select(['gpppvpm'])
-//Map.addLayer(withcel_gpp, {bands: ['gpppvpm']}, "withcel_gpp")
 
 
 
+// VPM
+// withcel_gpp = withcel.select(['gpp'])
+// Map.addLayer(withcel_gpp, {bands: ['gpppvpm']}, "withcel_gpp")
+
+// print(arkansasRice2020_raster)
+// var GMW_Ayeyarwady = GMW_2016.filterBounds(AyeyarwadyBoundary.geometry())
 // Define the chart and print it to the console.
-var chart =
-    ui.Chart.image
-        .series({
-          imageCollection: withcel_gpp,
-          region: arkansasRice2020,
-          reducer: ee.Reducer.mean(),
-          scale: 500,
-          xProperty: 'system:time_start'
-        })
-        .setSeriesNames(['gpppvpm'])
-        .setOptions({
-          title: 'Average Vegetation Index Value by Date for Forest',
-          hAxis: {title: 'Date', titleTextStyle: {italic: false, bold: true}},
-          vAxis: {
-            title: 'Vegetation index (x1e4)',
-            titleTextStyle: {italic: false, bold: true}
-          },
-          lineWidth: 5,
-          colors: ['e37d05'],
-          curveType: 'function'
-        });
-print(chart);
+// var chart =
+//     ui.Chart.image
+//         .series({
+//           imageCollection: withcel_gpp,
+//           region: arkansasRice2020_raster.geometry(),
+//           reducer: ee.Reducer.mean(),
+//           scale: 500,
+//           xProperty: 'system:time_start'
+//         })
+//         .setSeriesNames(['gpppvpm'])
+//         .setOptions({
+//           title: 'Average Vegetation Index Value by Date for Forest',
+//           hAxis: {title: 'Date', titleTextStyle: {italic: false, bold: true}},
+//           vAxis: {
+//             title: 'Vegetation index (x1e4)',
+//             titleTextStyle: {italic: false, bold: true}
+//           },
+//           lineWidth: 5,
+//           colors: ['e37d05'],
+//           curveType: 'function'
+//         });
+// print(chart);
 
-var withcel_gpp = withcel.select(['gpppvpm'])
 
+// var chart = ui.Chart.image.series({
+//     imageCollection: withcel_gpp.select('gpppvpm'),
+//     region: arkansasRice2020.geometry(),
+//     reducer: ee.Reducer.mean(),
+//     scale: 500
+//     }).setOptions({
+//       interpolateNulls: true,
+//       lineWidth: 1,
+//       pointSize: 3,
+//       title: 'KNDVI over Time at a Single Location',
+//       vAxis: {title: 'KNDVI'},
+//       hAxis: {title: 'Date', format: 'YYYY-MMM', gridlines: {count: 12}}
+//     })
+// print(chart)
+
+
+
+
+// this reducer take the zero values into account
+
+
+// get the zeroes out
+function fix_mask(image) {
+  var mask = image.neq(0);
+  return image.updateMask(mask);
+}
+
+withcel_gpp = withcel_gpp.map(fix_mask);
+// Map.addLayer(withcel_gpp, null, "withcel_gpp")
 
 // Image collection reduction
 // Compute the median in each band, each pixel.
 // Band names are B1_median, B2_median, etc.
 var mean = withcel_gpp.reduce(ee.Reducer.mean());
+
+var cumulative = withcel_gpp.reduce(ee.Reducer.sum())
+
+
+Map.addLayer(mean, null, "mean")
+
+
 // Export the image, specifying scale and region.
 Export.image.toDrive({
   image: mean.clipToCollection(arkansasRice2020),
-  description: 'arkansasRice2020PVPM',
+  description: 'arkansasRice2020PVPMmean',
+  folder: 'MeanPVPM',
   scale: 500,
   region: geometry
 });
 
-// code if the minimum code does not work
+
+
+// // batch export
+// // This code exports batch export
+// var listOfImages = withcel_gpp.toList(withcel_gpp.size());
+// var firstImage = listOfImages.get(0)
+// var secondImage = listOfImages.get(1)
+// print(firstImage)
+// // get mean precipitation values by county polygon
+// var batch = require('users/fitoprincipe/geetools:batch');
+// batch.Download.ImageCollection.toDrive(withcel_gpp, '2020VPM', 
+//                 {scale: 500, 
+//                 region: geometry,
+//                 type: 'float'})
+
+
+
+
+
+
+// Dont know if we need these code
+// //code if the minimum code does not work
 // var z = ee.Image(max
 //         .filterMetadata('year', 'equals', 2020).first());
 // print(z, "z")
@@ -1007,7 +1298,258 @@ Export.image.toDrive({
 // print(bandSubset.first().date(), "Bandsubset first date")
 // print(bandSubset.aggregate_max('system:index')) 
 
+// exports.geometry = geometry;
+
+// var reducers = ee.Reducer.mean().combine({
+//   reducer2: ee.Reducer.stdDev(),
+//   sharedInputs: true
+// });
+
+// function stats (image) {
+//   var stats1 = image.reduceRegion({
+//     reducer: reducers,
+//     geometry: arkansasRice2020,
+//     scale: 500,
+//     bestEffort: true,
+//   });
+//   return image.set(stats1);
+// }
+
+// var statistics = withcel_gpp.map(stats);
+
+// print("statistics", statistics);
 
 
 
 
+// to understand the influence factors of GPP
+
+// temperature
+// PVPM
+
+print(withcel, "withcelbeforets")
+var withcel_tmean = withcel.select(['ts'])
+print(withcel_tmean)
+var meantmean = withcel_tmean.mean();
+// Reduce the collection with a median reducer.
+var meantmean = withcel_tmean.reduce(ee.Reducer.mean());
+
+// Reduce the region. The region parameter is the Feature geometry.
+var meants = meantmean.reduceRegion({
+  reducer: ee.Reducer.mean(),
+  geometry: arkansasRice2020.geometry(),
+  scale: 500,
+  maxPixels: 1e9
+});
+
+var stdts = meantmean.reduceRegion({
+  reducer: ee.Reducer.stdDev(),
+  geometry: arkansasRice2020.geometry(),
+  scale: 500,
+  maxPixels: 1e9
+});
+
+// The result is a Dictionary.  Print it.
+print(meants);
+print(stdts)
+
+
+Map.addLayer(meantmean)
+
+
+var withcel_tmean = withcel.select(['tmean'])
+var meantmean = withcel_tmean.reduce(ee.Reducer.mean());
+var cumulativetmean = withcel_tmean.reduce(ee.Reducer.sum())
+var tmean_mean = meantmean.select(['tmean_mean']);
+var tmean_sum = cumulativetmean.select(['tmean_sum']);
+// shortwave radiation
+var withcel_par = withcel.select(['par'])
+var meanpar = withcel_par.reduce(ee.Reducer.mean());
+var cumulativepar = withcel_par.reduce(ee.Reducer.sum())
+var par_mean = meanpar.select(['par_mean']);
+var par_sum = cumulativepar.select(['par_sum']);
+// EVI
+var withcel_evisg = withcel.select(['EVI_SG'])
+var meanevisg = withcel_evisg.reduce(ee.Reducer.mean());
+var cumulativeevisg = withcel_evisg.reduce(ee.Reducer.sum())
+var EVI_SG_mean = meanevisg.select(['EVI_SG_mean']);
+var EVI_SG_sum = cumulativeevisg.select(['EVI_SG_sum']);
+// LSWI
+var withcel_lswisg = withcel.select(['LSWI_SG'])
+var meanlswisg = withcel_lswisg.reduce(ee.Reducer.mean());
+var cumulativelswisg = withcel_lswisg.reduce(ee.Reducer.sum())
+var LSWI_SG_mean = meanlswisg.select(['LSWI_SG_mean']);
+var LSWI_SG_sum = cumulativelswisg.select(['LSWI_SG_sum']);
+// LUEmax
+var withcel_luemax = withcel.select(['pLUEmax2'])
+var meanluemax = withcel_luemax.reduce(ee.Reducer.mean());
+var cumulativeluemax = withcel_luemax.reduce(ee.Reducer.sum())
+var pLUEmax2_mean = meanluemax.select(['pLUEmax2_mean']);
+var pLUEmax2_sum = cumulativeluemax.select(['pLUEmax2_sum']);
+
+
+
+Export.image.toDrive({
+  image: tmean_mean.clipToCollection(arkansasRice2020),
+  description: 'tmean_mean2020',
+  folder: '2020Driver',
+  scale: 500,
+  region: geometry
+});
+
+Export.image.toDrive({
+  image: par_mean.clipToCollection(arkansasRice2020),
+  description: 'par_mean2020',
+  folder: '2020Driver',
+  scale: 500,
+  region: geometry
+});
+
+Export.image.toDrive({
+  image: EVI_SG_mean.clipToCollection(arkansasRice2020),
+  description: 'EVI_SG_mean2020',
+  folder: '2020Driver',
+  scale: 500,
+  region: geometry
+});
+
+Export.image.toDrive({
+  image: LSWI_SG_mean.clipToCollection(arkansasRice2020),
+  description: 'LSWI_SG_mean2020',
+  folder: '2020Driver',
+  scale: 500,
+  region: geometry
+});
+
+
+Export.image.toDrive({
+  image: pLUEmax2_mean.clipToCollection(arkansasRice2020),
+  description: 'pLUEmax2_mean2020',
+  folder: '2020Driver',
+  scale: 500,
+  region: geometry
+});
+
+
+// print(meandriver)
+
+// var cumulativedriver= par_sum.addBands(tmean_sum)
+// var cumulativedriver= cumulativedriver.addBands(EVI_SG_sum);
+// var cumulativedriver= cumulativedriver.addBands(LSWI_SG_sum);
+// var cumulativedriver= cumulativedriver.addBands(pLUEmax2_sum);
+
+
+
+
+// Fetch a MODIS NDVI collection and select NDVI.
+var col = withcel.select(['gpppvpm']);
+
+// Define a mask to clip the NDVI data by.
+var mask = geometry4
+
+// Define the regional bounds of animation frames.
+var region = geometry4
+
+// Add day-of-year (DOY) property to each image.
+col = col.map(function(img) {
+  var doy = ee.Date(img.get('system:time_start')).getRelative('day', 'year');
+  return img.set('doy', doy);
+});
+
+// Get a collection of distinct images by 'doy'.
+var distinctDOY = col.filterDate('2020-01-01', '2020-12-31');
+
+// Define a filter that identifies which images from the complete
+// collection match the DOY from the distinct DOY collection.
+var filter = ee.Filter.equals({leftField: 'doy', rightField: 'doy'});
+
+// Define a join.
+var join = ee.Join.saveAll('doy_matches');
+
+// Apply the join and convert the resulting FeatureCollection to an
+// ImageCollection.
+var joinCol = ee.ImageCollection(join.apply(distinctDOY, col, filter));
+
+// Apply median reduction among matching DOY collections.
+var comp = joinCol.map(function(img) {
+  var doyCol = ee.ImageCollection.fromImages(
+    img.get('doy_matches')
+  );
+  return doyCol.reduce(ee.Reducer.median());
+});
+
+// Define RGB visualization parameters.
+var visParams = {
+  min: 0.0,
+  max: 9000.0,
+  palette: [
+    'FFFFFF', 'CE7E45', 'DF923D', 'F1B555', 'FCD163', '99B718', '74A901',
+    '66A000', '529400', '3E8601', '207401', '056201', '004C00', '023B01',
+    '012E01', '011D01', '011301'
+  ],
+};
+
+// Create RGB visualization images for use as animation frames.
+var rgbVis = comp.map(function(img) {
+  return img.visualize(visParams).clip(mask);
+});
+
+// Define GIF visualization arguments.
+var gifParams = {
+  'region': region,
+  'dimensions': 600,
+  'crs': 'EPSG:3857',
+  'framesPerSecond': 10,
+  'format': 'gif'
+};
+
+// Print the GIF URL to the console.
+
+
+// Render the GIF animation in the console.
+print(ui.Thumbnail(rgbVis, gifParams));
+var palettes = require('users/gena/packages:palettes');
+var palette = palettes.colorbrewer.RdYlGn[9];
+
+
+var withcelDOP_mean = withcel.select(['DOP_mean'])
+var withcelDOH_mean = withcel.select(['DOH_mean'])
+var withcelDOP_mean = withcelDOP_mean.reduce(ee.Reducer.mean()).clip(arkansasRice2020);
+var withcelDOH_mean = withcelDOH_mean.reduce(ee.Reducer.mean()).clip(arkansasRice2020);
+Map.addLayer(withcelDOP_mean,  {min: 90, max: 120, palette: palette}, "withcelDOP_mean")
+Map.addLayer(withcelDOH_mean,  {min: 220, max: 260, palette: palette}, "withcelDOH_mean")
+
+
+
+// Get the time series of MODIS NDVI values at the point location.
+// Define the chart and print it to the console.
+var chart =
+    ui.Chart.image.histogram({image: withcelDOP_mean, region: arkansasRice2020, scale: 500})
+        .setSeriesNames(['DOP'])
+        .setOptions({
+          title: 'MODIS SR Reflectance Histogram',
+          hAxis: {
+            title: 'Reflectance (scaled by 1e4)',
+            titleTextStyle: {italic: false, bold: true},
+          },
+          vAxis:
+              {title: 'Count', titleTextStyle: {italic: false, bold: true}},
+          colors: ['cf513e', '1d6b99', 'f0af07']
+        });
+print(chart);
+
+
+var chart =
+    ui.Chart.image.histogram({image: withcelDOH_mean, region: arkansasRice2020, scale: 500})
+        .setSeriesNames(['DOH'])
+        .setOptions({
+          title: 'Day of planting derived using ',
+          hAxis: {
+            title: 'Reflectance (scaled by 1e4)',
+            titleTextStyle: {italic: false, bold: true},
+          },
+          vAxis:
+              {title: 'Count', titleTextStyle: {italic: false, bold: true}},
+          colors: ['cf513e', '1d6b99', 'f0af07']
+        });
+print(chart);
