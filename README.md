@@ -26,7 +26,7 @@ We estimate daily and cumulative Gross Primary Productivity (GPP) of rice across
 
 Ten EC tower rice fields in Arkansas, covering 2015–2018 (16 site-seasons):
 
-![Site map](Figures/Figure.png)
+![Site map](Figure/ArkansasStudysite-2-2172023.png)
 
 Sites include US-HRA and US-HRC (central Arkansas, Lonoke County) and US-BDA, US-BDC, and US-OF1 through US-OF6 (northeastern Arkansas, Mississippi County).
 
@@ -50,8 +50,8 @@ GPPPVPM/
 │       ├── Drivers_EVI_T_Precipitation_LSWI.R
 │       └── Distributioncheck50percentricepixelversusfullricepixel.R
 │
-├── Figures/
-│   ├── Figure.png                        # EC tower site map
+├── Figure/
+│   ├── ArkansasStudysite-2-2172023.png   # EC tower site map
 │   ├── GPPriceproductionregion.png       # GPP by rice production zone
 │   └── VPMcumulativearranged.png         # Statewide cumulative GPP map (2008–2020)
 │
@@ -94,7 +94,7 @@ Rice pixel masks are derived from the USDA Cropland Data Layer (CDL) via the AgK
 
 **Cumulative GPP map (2008–2020 mean):**
 
-![Cumulative GPP](Figures/VPMcumulativearranged.png)
+![Cumulative GPP](Figure/VPMcumulativearranged.png)
 
 ### Step 4 — GPP by Rice Production Zone
 
@@ -104,7 +104,7 @@ Scripts/Workflow/VPMMeanRasterImageAnalysis2008_2020.R
 
 Computes and compares mean cumulative GPP across six rice production ecological zones: Grand Prairie, White River, West of Crawley's Ridge, North Delta, Middle Delta, and South Delta.
 
-![GPP by production region](Figures/GPPriceproductionregion.png)
+![GPP by production region](Figure/GPPriceproductionregion.png)
 
 Grand Prairie (highest GPP: 1950 g C m⁻² yr⁻¹) and Middle Delta (lowest: 1697 g C m⁻² yr⁻¹) differ significantly in EVI (p = 7.5×10⁻⁶) and LSWI (p = 4.9×10⁻⁶) but not in temperature or PAR, pointing to agronomic and soil drivers of GPP variability.
 
